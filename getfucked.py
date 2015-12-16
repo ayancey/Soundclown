@@ -7,7 +7,7 @@ from flask import Flask, render_template, request, Response
 import os
 
 app = Flask(__name__)
-app.debug = True
+app.debug = False
 
 def track_url_to_id(url):
     r = requests.get(url)
