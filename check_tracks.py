@@ -2,7 +2,8 @@ import requests
 from bs4 import BeautifulSoup
 import webbrowser
 import os
-from tinydb import TinyDB, Query
+from tinydb import TinyDB, where
+import json
 
 
 def track_url_to_id(url):
@@ -13,9 +14,13 @@ def track_url_to_id(url):
 def track_info(id):
     r = requests.get('https://api-v2.soundcloud.com/tracks?urns=soundcloud%3Atracks%3A' + str(id))
     r.raise_for_status()
-    return json.loads(r.text)[0]
+    r = json.loads(r.text)
+    if r:
+        return r[0]
+    else:
+        raise ValueError('Invalid track ID')
 
-def downloadable(info):
+def is_downloadable(info):
     if not info['downloadable']:
         return False
 
@@ -24,14 +29,40 @@ def downloadable(info):
 
     return True
 
+#print track_url_to_id('https://soundcloud.com/thump/jx-cannon-cowbells-and-airhorns')
 
-# requests.post(
-#     "https://api.mailgun.net/v3/mg.mykachow.com/messages",
-#     auth=("api", "key-708e520b2f3eb75ebeb6d663b8b648f0"),
-#     data={"from": "Soundclown Mail Daemon <postmaster@mg.mykachow.com>",
-#           "to": "ameanberg@gmail.com",
-#           "subject": "Hello",
-#           "text": "Testing some Mailgun awesomness!"})
+
 
 db = TinyDB('db.json')
+settings = db.get(eid=1)
+songs = db.table('songs')
 
+
+
+#songs.insert({'id': '231553738', 'downloadable': False, 'emails': ['ameanberg@gmail.com']})
+
+for i in songs.search(where('downloadable') == False):
+    print i['id']
+
+    info = track_info(i['id'])
+    d = is_downloadable(info)
+    d = True
+
+    if d:
+        print 'Is now downloadable'
+        songs.update({'downloadable': True}, where('id') == i['id'])
+
+        for email in i['emails']:
+            print 'Emailing ' + email
+
+            requests.post(
+                "https://api.mailgun.net/v3/" + settings['domain'] + "/messages",
+                auth=("api", settings['api_key']),
+                data={"from": "Soundclown Mail Daemon <postmaster@" + settings['domain'] + ">",
+                      "to": email,
+                      "subject": info['title'] + " is now downloadable!",
+                      "text": info['title'] + ' is now downloadable!',
+                      "html": '<a href="' + info['permalink_url'] + '">' + info['title'] + '</a> is now downloadable!'})
+
+    else:
+        print 'Still not downloadable'
