@@ -1,9 +1,8 @@
 import requests
 from bs4 import BeautifulSoup
 import webbrowser
-import codecs
-import json
 import os
+from tinydb import TinyDB, Query
 
 
 def track_url_to_id(url):
@@ -12,41 +11,27 @@ def track_url_to_id(url):
     return str(r.text.split('soundcloud://sounds:')[1].split('">')[0])
 
 def track_info(id):
-    r = requests.get('https://api-v2.soundcloud.com/tracks?urns=soundcloud%3Atracks%3A' + id)
+    r = requests.get('https://api-v2.soundcloud.com/tracks?urns=soundcloud%3Atracks%3A' + str(id))
     r.raise_for_status()
     return json.loads(r.text)[0]
 
-track_ids = []
+def downloadable(info):
+    if not info['downloadable']:
+        return False
 
-if os.path.isfile('ids.json'):
-    with open('ids.json') as f:
-       track_ids = json.loads(f.read())
+    if not info['has_downloads_left']:
+        return False
 
-for id in track_ids:
-    print id
-    i = track_info(id)
-    d = i['downloadable']
-    print i['title']
+    return True
 
-    if d:
-        print 'New track downloadable'
 
-        requests.post(
-            "https://api.mailgun.net/v3/sandbox814fb387f48c4effa5bdba4e88793789.mailgun.org/messages",
-            auth=("api", "key-708e520b2f3eb75ebeb6d663b8b648f0"),
-            data={"from": "Soundclown <postmaster@mg.mykachow.com>",
-                  "to": "Alex Meanberg <ameanberg@gmail.som>",
-                  "subject": 'New track is now downloadable',
-                  "text": i['permalink_url'] + ' is now downloadable'})
+# requests.post(
+#     "https://api.mailgun.net/v3/mg.mykachow.com/messages",
+#     auth=("api", "key-708e520b2f3eb75ebeb6d663b8b648f0"),
+#     data={"from": "Soundclown Mail Daemon <postmaster@mg.mykachow.com>",
+#           "to": "ameanberg@gmail.com",
+#           "subject": "Hello",
+#           "text": "Testing some Mailgun awesomness!"})
 
-        requests.post(
-            "https://api.mailgun.net/v3/sandbox814fb387f48c4effa5bdba4e88793789.mailgun.org/messages",
-            auth=("api", "key-708e520b2f3eb75ebeb6d663b8b648f0"),
-            data={"from": "Soundclown <postmaster@mg.mykachow.com>",
-                  "to": "   Ellis Hammond-Pereira <ellis_hp@me.com>",
-                  "subject": 'New track is now downloadable',
-                  "text": i['permalink_url'] + ' is now downloadable'})
+db = TinyDB('db.json')
 
-        track_ids.remove(id)
-        with open('ids.json', 'w') as f:
-            f.write(json.dumps(track_ids))
